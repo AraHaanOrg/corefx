@@ -10,6 +10,10 @@ parameters:
   # Required: A collection of jobs to run - https://docs.microsoft.com/en-us/azure/devops/pipelines/yaml-schema?view=vsts&tabs=schema#job
   jobs: []
 
+  # Required: value to specify if the job is comming from an official build to run extra steps and sign binaries
+  #   Default: false
+  isOfficialBuild: false
+
   # EACH JOB SHOULD INCLUDE THE FOLLOWING PROPERTIES (ASIDE FROM THE REQUIRED ONES IN THE JOB SCHEMA)
 
   # Required: as part of the strategy matrix, the following variables should be defined
@@ -35,7 +39,7 @@ parameters:
   #     - script: echo Hello World
   #       displayName: MyScript
 
-  # Optional: enableMicrobuildPlugin -> Boolean - if microbuild plugin for signing should be enabled
+  # Optional: enableMicrobuild -> Boolean - if microbuild plugin for signing should be enabled
   # Default: false
   
   # Optional: preBuildSteps -> Array -> list of steps to be executed before common build steps.
@@ -62,27 +66,39 @@ jobs:
         # Define OS specific commands
         - ${{ if eq(parameters.targetOS, 'Windows_NT') }}:
           - name: _buildScript
-            value: build.cmd -ci
+            value: build.cmd
+          - name: _commonArguments
+            ${{ if eq(parameters.isOfficialBuild, 'true') }}:
+              value: -ci -includetests -sign
+            ${{ if eq(parameters.isOfficialBuild, 'false') }}:
+              value: -ci -includetests
           - name: _msbuildCommand
             value: powershell -ExecutionPolicy ByPass -NoProfile eng\common\msbuild.ps1 -warnaserror:0 -ci
+
         - ${{ if ne(parameters.targetOS, 'Windows_NT') }}:
           - name: _buildScript
-            value: ${{ job.buildScriptPrefix }}./build.sh --ci
+            value: ${{ job.buildScriptPrefix }}./build.sh
+          - name: _commonArguments
+            value: --ci -includetests
           - name: _msbuildCommand
             value: ${{ job.buildScriptPrefix }}./eng/common/msbuild.sh --warnaserror false --ci
 
-        - ${{ if eq(job.enableMicrobuild, 'true') }}:
+        - ${{ if and(eq(job.enableMicrobuild, 'true'), eq(parameters.isOfficialBuild, 'true')) }}:
           - name: _TeamName
             value: DotNetCore
           - name: _SignType
             value: real
 
         - ${{ if eq(job.submitToHelix, 'true') }}:
-          - group: Helix Anonymous
+          - group: DotNet-HelixApi-Access
+
+          - ${{ if eq(parameters.isOfficialBuild, 'false') }}:
+            - name: HelixApiAccessToken
+              value: $(BotAccount-dotnet-github-anon-kaonashi-bot-helix-token)
 
         # pass along job properties
         ${{ each property in job }}:
-          ${{ if and(ne(property.key, 'job'), ne(property.key, 'variables')) }}:
+          ${{ if and(ne(property.key, 'job'), ne(property.key, 'variables'), ne(property.key, 'enableMicrobuild')) }}:
             ${{ property.key }}: ${{ property.value }}
         
         name: ${{ job.job }}
@@ -99,7 +115,7 @@ jobs:
 
           - ${{ if eq(job.customBuildSteps[0], '') }}:
             - script: $(_buildScript)
-                    -includetests
+                    $(_commonArguments)
                     -framework $(_framework)
                     /p:ArchGroup=$(_architecture)
                     /p:ConfigurationGroup=$(_configuration)
@@ -121,3 +137,4 @@ jobs:
                 helixQueues: $(_helixQueues)
                 msbuildScript: $(_msbuildCommand)
                 framework: $(_framework)
+                helixToken: $(HelixApiAccessToken)

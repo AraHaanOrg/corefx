@@ -22,9 +22,18 @@ resources:
 jobs:
   # Windows legs
   - template: /eng/pipelines/windows.yml
+    ${{ if and(ne(variables['System.TeamProject'], 'public'), notIn(variables['Build.Reason'], 'PullRequest')) }}:
+      parameters:
+        isOfficialBuild: true
 
   # Linux legs
   - template: /eng/pipelines/linux.yml
+    ${{ if and(ne(variables['System.TeamProject'], 'public'), notIn(variables['Build.Reason'], 'PullRequest')) }}:
+      parameters:
+        isOfficialBuild: true
 
   # MacOS legs
   - template: /eng/pipelines/macos.yml
+    ${{ if and(ne(variables['System.TeamProject'], 'public'), notIn(variables['Build.Reason'], 'PullRequest')) }}:
+      parameters:
+        isOfficialBuild: true

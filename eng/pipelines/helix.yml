@@ -3,7 +3,7 @@ parameters:
   configuration: ''
   framework: ''
   helixQueues: ''
-  helixToken: $(BotAccount-dotnet-github-anon-kaonashi-bot-helix-token)
+  helixToken: ''
   msbuildScript: ''
   targetOS: ''
   waitForCompletion: true

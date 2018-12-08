@@ -1,8 +1,14 @@
 # Windows legs
+parameters:
+  # Required: value to specify if the job is comming from an official build to run extra steps and sign binaries
+  #   Default: false
+  isOfficialBuild: false
+
 jobs:
 
 - template: corefx-base.yml
   parameters:
+    isOfficialBuild: ${{ parameters.isOfficialBuild }}
     targetOS: Windows_NT
     jobs:
 
@@ -38,16 +44,20 @@ jobs:
             _helixQueues: $(uapNetfxQueues)
 
       pool:
-        name: Hosted VS2017
+        ${{ if eq(parameters.isOfficialBuild, 'true') }}:
+          name: dotnet-internal-temp
+        ${{ if eq(parameters.isOfficialBuild, 'false') }}:
+          name: Hosted VS2017
 
       submitToHelix: true
+      enableMicrobuild: ${{ parameters.isOfficialBuild }}
 
       variables:
         - name: _skipTests
           value: true
 
         - name: _outerloop
-          value: false
+          value: ${{ parameters.isOfficialBuild }}
 
         - name: netcoreappWindowsQueues
           value: Windows.7.Amd64.Open+Windows.81.Amd64.Open+Windows.10.Amd64.ClientRS4.ES.Open
@@ -67,16 +77,20 @@ jobs:
             _framework: uapaot
 
       pool:
-        name: Hosted VS2017
+        ${{ if eq(parameters.isOfficialBuild, 'true') }}:
+          name: dotnet-internal-temp
+        ${{ if eq(parameters.isOfficialBuild, 'false') }}:
+          name: Hosted VS2017
 
       submitToHelix: false
+      enableMicrobuild: ${{ parameters.isOfficialBuild }}
 
       variables:
         - name: _skipTests
           value: true
 
         - name: _outerloop
-          value: false
+          value: ${{ parameters.isOfficialBuild }}
 
     # Packaging all configurations
     - job: WindowsAllConfigurations
@@ -88,9 +102,13 @@ jobs:
             _architecture: x64
             _framework: allConfigurations
       pool:
-        name: Hosted VS2017
+        ${{ if eq(parameters.isOfficialBuild, 'true') }}:
+          name: dotnet-internal-temp
+        ${{ if eq(parameters.isOfficialBuild, 'false') }}:
+          name: Hosted VS2017
 
       submitToHelix: false
+      enableMicrobuild: ${{ parameters.isOfficialBuild }}
 
       customBuildSteps:
         - script: build.cmd
